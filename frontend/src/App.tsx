@@ -25,12 +25,12 @@ function App() {
       <h1>TaskFlow</h1>
       <TaskForm onAdd={addTask} />
 
-      {loading && <p className="status">Cargando tareas…</p>}
+      {loading && <p className="status">Loading tasks…</p>}
 
       {error && (
         <div className="status error">
           <p>{error}</p>
-          <button onClick={reload}>Reintentar</button>
+          <button onClick={reload}>Try Again</button>
         </div>
       )}
 

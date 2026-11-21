@@ -36,22 +36,22 @@ export function TaskForm({ onAdd }: Props) {
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="¿Qué hay que hacer?"
+        placeholder="What should we do?"
         maxLength={120}
         disabled={submitting}
-        aria-label="Título"
+        aria-label="Title"
       />
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        placeholder="Descripción (opcional)"
+        placeholder="Description (optional)"
         maxLength={1000}
         rows={2}
         disabled={submitting}
-        aria-label="Descripción"
+        aria-label="Description"
       />
       <button type="submit" disabled={submitting}>
-        {submitting ? "Guardando…" : "Agregar tarea"}
+        {submitting ? "Saving…" : "Add Task"}
       </button>
       {error && <p className="error">{error}</p>}
     </form>

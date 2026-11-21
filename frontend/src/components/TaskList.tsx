@@ -9,9 +9,9 @@ interface Props {
 }
 
 const EMPTY_TEXT: Record<Filter, string> = {
-  all: "Todavía no hay tareas. ¡Agregá la primera!",
-  active: "No tenés tareas pendientes 🎉",
-  completed: "Aún no completaste ninguna tarea.",
+  all: "There aren't any assignments yet. Add the first one!",
+  active: "You have no pending tasks 🎉",
+  completed: "You haven't completed any tasks yet.",
 };
 
 export function TaskList({ tasks, filter, onUpdate, onDelete }: Props) {

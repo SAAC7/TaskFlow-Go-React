@@ -7,9 +7,9 @@ interface Props {
 }
 
 const LABELS: Record<Filter, string> = {
-  all: "Todas",
-  active: "Pendientes",
-  completed: "Completadas",
+  all: "All",
+  active: "In progress",
+  completed: "Completed",
 };
 
 export function FilterBar({ filter, onChange, counts }: Props) {

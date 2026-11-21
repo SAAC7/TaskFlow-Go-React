@@ -96,13 +96,13 @@ export function TaskItem({ task, onUpdate, onDelete }: Props) {
       <div className="task-actions">
         {editing ? (
           <>
-            <button onClick={save} disabled={busy}>Guardar</button>
-            <button onClick={cancelEditing} disabled={busy}>Cancelar</button>
+            <button onClick={save} disabled={busy}>Save</button>
+            <button onClick={cancelEditing} disabled={busy}>Cancel</button>
           </>
         ) : (
           <>
-            <button onClick={startEditing} disabled={busy}>Editar</button>
-            <button className="danger" onClick={remove} disabled={busy}>Borrar</button>
+            <button onClick={startEditing} disabled={busy}>Edit</button>
+            <button className="danger" onClick={remove} disabled={busy}>Delete</button>
           </>
         )}
       </div>
