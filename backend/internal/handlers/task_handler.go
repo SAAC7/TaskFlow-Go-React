@@ -1,161 +1,196 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
+	"time"
 
+	"taskflow-backend/internal/middleware"
 	"taskflow-backend/internal/models"
 	"taskflow-backend/internal/services"
+)
 
-	"go.mongodb.org/mongo-driver/v2/bson"
-	"go.mongodb.org/mongo-driver/v2/mongo"
+const (
+	requestTimeout = 5 * time.Second // max time for one request's database work
+	defaultLimit   = 50
+	maxLimit       = 100
 )
 
 type TaskHandler struct {
 	service *services.TaskService
+	log     *slog.Logger
 }
 
-func NewTaskHandler(
-	service *services.TaskService,
-) *TaskHandler {
-	return &TaskHandler{
-		service: service,
-	}
+func NewTaskHandler(service *services.TaskService, log *slog.Logger) *TaskHandler {
+	return &TaskHandler{service: service, log: log}
 }
 
-func respondJSON(
-	w http.ResponseWriter,
-	status int,
-	data any,
-) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+// Register mounts the task routes (Go 1.22 "METHOD /path/{param}" patterns).
+func (h *TaskHandler) Register(mux *http.ServeMux) {
+	mux.HandleFunc("POST /tasks", h.Create)
+	mux.HandleFunc("GET /tasks", h.FindAll)
+	mux.HandleFunc("GET /tasks/{id}", h.FindByID)
+	mux.HandleFunc("PUT /tasks/{id}", h.Update)
+	mux.HandleFunc("PATCH /tasks/{id}", h.Patch)
+	mux.HandleFunc("DELETE /tasks/{id}", h.Delete)
 }
 
-func respondError(
-	w http.ResponseWriter,
-	status int,
-	message string,
-) {
-	respondJSON(w, status, map[string]string{
-		"error": message,
-	})
-}
-
+// POST /tasks -> 201 Created + Location header
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var task models.Task
-
-	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid JSON")
+	var in models.TaskInput
+	if err := decodeJSON(w, r, &in); err != nil {
+		respondDecodeError(w, err)
 		return
 	}
 
-	err := h.service.Create(r.Context(), &task)
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
 
-	if errors.Is(err, services.ErrInvalidTask) {
-		respondError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
+	task, err := h.service.Create(ctx, in)
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Could not create task")
+		h.handleError(w, r, err)
 		return
 	}
-
+	w.Header().Set("Location", "/tasks/"+task.ID.Hex())
 	respondJSON(w, http.StatusCreated, task)
 }
 
+// GET /tasks?completed=true&limit=20&page=2
 func (h *TaskHandler) FindAll(w http.ResponseWriter, r *http.Request) {
-	tasks, err := h.service.FindAll(r.Context())
-
+	filter, err := parseListFilter(r.URL.Query())
 	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Could not retrieve tasks")
+		respondError(w, http.StatusBadRequest, "invalid_query", err.Error(), nil)
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	tasks, err := h.service.FindAll(ctx, filter)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 	respondJSON(w, http.StatusOK, tasks)
 }
+
+// GET /tasks/{id}
 func (h *TaskHandler) FindByID(w http.ResponseWriter, r *http.Request) {
-	id, err := bson.ObjectIDFromHex(r.PathValue("id"))
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
 
+	task, err := h.service.FindByID(ctx, r.PathValue("id"))
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid task ID")
+		h.handleError(w, r, err)
 		return
 	}
-
-	task, err := h.service.FindByID(r.Context(), id)
-
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		respondError(w, http.StatusNotFound, "Task not found")
-		return
-	}
-
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Could not retrieve task")
-		return
-	}
-
 	respondJSON(w, http.StatusOK, task)
 }
+
+// PUT /tasks/{id}: replaces title, description and completed (title required).
 func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id, err := bson.ObjectIDFromHex(r.PathValue("id"))
+	var in models.TaskInput
+	if err := decodeJSON(w, r, &in); err != nil {
+		respondDecodeError(w, err)
+		return
+	}
 
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	task, err := h.service.Replace(ctx, r.PathValue("id"), in)
 	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid task ID")
+		h.handleError(w, r, err)
 		return
 	}
-
-	var task models.Task
-
-	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid JSON")
-		return
-	}
-
-	err = h.service.Update(r.Context(), id, &task)
-
-	if errors.Is(err, services.ErrInvalidTask) {
-		respondError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		respondError(w, http.StatusNotFound, "Task not found")
-		return
-	}
-
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Could not update task")
-		return
-	}
-
-	task.ID = id
-
 	respondJSON(w, http.StatusOK, task)
 }
+
+// PATCH /tasks/{id}: changes only the fields that were sent
+// (e.g. {"completed": true} to toggle a task).
+func (h *TaskHandler) Patch(w http.ResponseWriter, r *http.Request) {
+	var patch models.TaskPatch
+	if err := decodeJSON(w, r, &patch); err != nil {
+		respondDecodeError(w, err)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
+
+	task, err := h.service.Patch(ctx, r.PathValue("id"), patch)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+	respondJSON(w, http.StatusOK, task)
+}
+
+// DELETE /tasks/{id} -> 204 No Content
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := bson.ObjectIDFromHex(r.PathValue("id"))
+	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
+	defer cancel()
 
-	if err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid task ID")
+	if err := h.service.Delete(ctx, r.PathValue("id")); err != nil {
+		h.handleError(w, r, err)
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
 
-	err = h.service.Delete(r.Context(), id)
+// handleError is the ONLY place that maps domain errors to HTTP status codes.
+// Unknown errors are logged in full but the client only sees a generic message,
+// so internal details (database messages) never leak.
+func (h *TaskHandler) handleError(w http.ResponseWriter, r *http.Request, err error) {
+	var validationErr *models.ValidationError
 
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		respondError(w, http.StatusNotFound, "Task not found")
-		return
+	switch {
+	case errors.As(err, &validationErr):
+		respondError(w, http.StatusUnprocessableEntity, "validation_failed", "One or more fields are invalid", validationErr.Fields)
+	case errors.Is(err, models.ErrInvalidID):
+		respondError(w, http.StatusBadRequest, "invalid_id", "The task id is not valid", nil)
+	case errors.Is(err, models.ErrNotFound):
+		respondError(w, http.StatusNotFound, "not_found", "Task not found", nil)
+	default:
+		h.log.Error("internal error", "error", err, "request_id", middleware.GetRequestID(r.Context()))
+		respondError(w, http.StatusInternalServerError, "internal_error", "Something went wrong", nil)
+	}
+}
+
+// parseListFilter reads and validates the query string of GET /tasks.
+func parseListFilter(q url.Values) (models.ListFilter, error) {
+	f := models.ListFilter{Limit: defaultLimit}
+
+	if v := q.Get("completed"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return f, errors.New("completed must be true or false")
+		}
+		f.Completed = &b
 	}
 
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Could not delete task")
-		return
+	if v := q.Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > maxLimit {
+			return f, fmt.Errorf("limit must be a number between 1 and %d", maxLimit)
+		}
+		f.Limit = int64(n)
 	}
 
-	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "Task deleted successfully",
-	})
+	page := 1
+	if v := q.Get("page"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			return f, errors.New("page must be a number greater than or equal to 1")
+		}
+		page = n
+	}
+	f.Skip = int64(page-1) * f.Limit
+
+	return f, nil
 }

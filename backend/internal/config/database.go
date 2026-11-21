@@ -2,37 +2,30 @@ package config
 
 import (
 	"context"
-	"os"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-func ConnectDB() (*mongo.Database, error) {
-	uri := os.Getenv("MONGODB_URI")
-	databaseName := os.Getenv("MONGODB_DATABASE")
-
-	clientOptions := options.Client().ApplyURI(uri)
-
-	client, err := mongo.Connect(clientOptions)
+// ConnectDB connects to MongoDB Atlas and verifies the connection.
+// It returns the client too, so main can disconnect it on shutdown.
+func ConnectDB(ctx context.Context, uri, databaseName string) (*mongo.Client, *mongo.Database, error) {
+	client, err := mongo.Connect(options.Client().
+		ApplyURI(uri).
+		SetServerSelectionTimeout(5 * time.Second))
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("connect to mongodb: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		10*time.Second,
-	)
+	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	err = client.Ping(ctx, nil)
-	if err != nil {
-		client.Disconnect(context.Background())
-		return nil, err
+	if err := client.Ping(pingCtx, nil); err != nil {
+		_ = client.Disconnect(context.Background())
+		return nil, nil, fmt.Errorf("ping mongodb (check URI, credentials and Atlas Network Access): %w", err)
 	}
 
-	database := client.Database(databaseName)
-
-	return database, nil
+	return client, client.Database(databaseName), nil
 }

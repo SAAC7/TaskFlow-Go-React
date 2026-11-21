@@ -1,0 +1,18 @@
+# Render Blueprint: Dashboard -> New -> Blueprint -> select this repo.
+services:
+  - type: web
+    name: taskflow-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: MONGODB_DATABASE
+        value: task_manager
+      - key: MONGODB_URI
+        sync: false        # secret: paste it in the Render dashboard
+      - key: ALLOWED_ORIGINS
+        sync: false        # e.g. https://your-frontend.vercel.app
