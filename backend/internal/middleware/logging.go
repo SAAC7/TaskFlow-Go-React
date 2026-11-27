@@ -12,6 +12,8 @@ type statusRecorder struct {
 	status int
 }
 
+// WriteHeader remembers the status code and then forwards it to the real
+// ResponseWriter, so the logger can report it after the handler finishes.
 func (r *statusRecorder) WriteHeader(code int) {
 	r.status = code
 	r.ResponseWriter.WriteHeader(code)

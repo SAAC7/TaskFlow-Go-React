@@ -94,6 +94,8 @@ type ListFilter struct {
 	Skip      int64
 }
 
+// checkTitle returns a problem description if the title is empty or longer
+// than MaxTitleLen characters, or "" if the title is valid.
 func checkTitle(title string) string {
 	switch {
 	case title == "":
@@ -103,6 +105,8 @@ func checkTitle(title string) string {
 	}
 	return ""
 }
+// checkDescription returns a problem description if the description is longer
+// than MaxDescriptionLen characters, or "" if it is valid (it may be empty).
 func checkDescription(desc string) string {
 	if utf8.RuneCountInString(desc) > MaxDescriptionLen {
 		return "must be at most 1000 characters"

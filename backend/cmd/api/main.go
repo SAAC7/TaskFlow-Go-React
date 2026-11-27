@@ -17,7 +17,8 @@ import (
 	"taskflow-backend/internal/repositories"
 	"taskflow-backend/internal/services"
 )
-
+// main is the entry point of the program: it calls run and, if startup or
+// shutdown fails, logs the error and exits with status 1.
 func main() {
 	if err := run(); err != nil {
 		slog.Error("fatal error", "error", err)

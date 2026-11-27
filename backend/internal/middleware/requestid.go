@@ -29,6 +29,7 @@ func GetRequestID(ctx context.Context) string {
 	return id
 }
 
+// newID generates a random 16-character hexadecimal ID (8 random bytes).
 func newID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)

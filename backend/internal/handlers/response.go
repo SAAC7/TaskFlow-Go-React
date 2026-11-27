@@ -18,13 +18,15 @@ type errorBody struct {
 	Error apiError `json:"error"`
 }
 
+// apiError is the content of the "error" field of every error response.
 type apiError struct {
 	Code    string            `json:"code"`
 	Message string            `json:"message"`
 	Details map[string]string `json:"details,omitempty"`
 }
 
-func respondJSON(w http.ResponseWriter, status int, data any) {
+// respondJSON writes data as a JSON response with the given HTTP status code
+// and the standard JSON headers.func respondJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(status)
@@ -32,7 +34,8 @@ func respondJSON(w http.ResponseWriter, status int, data any) {
 		_ = json.NewEncoder(w).Encode(data)
 	}
 }
-
+// respondError writes an error response using the single error format of the
+// API: {"error": {"code", "message", "details"}}.
 func respondError(w http.ResponseWriter, status int, code, message string, details map[string]string) {
 	respondJSON(w, status, errorBody{Error: apiError{Code: code, Message: message, Details: details}})
 }

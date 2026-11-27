@@ -14,6 +14,8 @@ const EMPTY_TEXT: Record<Filter, string> = {
   completed: "You haven't completed any tasks yet.",
 };
 
+
+/** Renders the list of tasks, or a message that depends on the filter when there are none. */
 export function TaskList({ tasks, filter, onUpdate, onDelete }: Props) {
   if (tasks.length === 0) return <p className="empty">{EMPTY_TEXT[filter]}</p>;
 

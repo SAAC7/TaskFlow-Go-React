@@ -2,11 +2,13 @@ import type { ApiErrorBody, Task, TaskInput, TaskPatch } from './types'
 
 const BASE_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:8080/tasks').replace(/\/$/, '')
 
+/** Error thrown for every failed request, with the data sent back by the API. */
 export class ApiError extends Error {
   status: number
   code: string
   details?: Record<string, string>
 
+  /** Builds the error from the HTTP status, the API's error code, its message and the per-field details. */
   constructor(status: number, code: string, message: string, details?: Record<string, string>) {
     super(message)
     this.name = 'ApiError'
@@ -16,6 +18,10 @@ export class ApiError extends Error {
   }
 }
 
+/**
+* Single place that talks to fetch: adds the base URL, sends JSON, parses the
+* response and converts every failure into an ApiError.
+*/
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let res: Response
   try {
@@ -37,13 +43,19 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   return body as T
 }
-
+/** One function per endpoint of the Go API. */
 export const api = {
+
+  /** GET /tasks: returns the tasks (newest first); the signal lets the caller cancel the request. */
   list: (signal?: AbortSignal) => request<Task[]>('/tasks?limit=100', { signal }),
+
+  /** POST /tasks: creates a task and returns it with its generated id and dates. */
   create: (input: TaskInput) =>
     request<Task>('/tasks', { method: 'POST', body: JSON.stringify(input) }),
+  /** PATCH /tasks/{id}: changes only the fields sent in the patch and returns the updated task. */
   patch: (id: string, patch: TaskPatch) =>
     request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+  /** DELETE /tasks/{id}: removes the task (the API answers 204 with no body). */
   remove: (id: string) => request<void>(`/tasks/${id}`, { method: 'DELETE' }),
 }
 

@@ -24,10 +24,13 @@ type TaskRepository interface {
 	Delete(ctx context.Context, id bson.ObjectID) error
 }
 
+// TaskService contains the business rules of the tasks and uses a
+// TaskRepository to store them.
 type TaskService struct {
 	repository TaskRepository
 }
 
+// NewTaskService builds a TaskService that stores its data in the given repository.
 func NewTaskService(repository TaskRepository) *TaskService {
 	return &TaskService{repository: repository}
 }
@@ -35,6 +38,8 @@ func NewTaskService(repository TaskRepository) *TaskService {
 // now returns the current UTC time truncated to milliseconds (MongoDB's precision).
 func now() time.Time { return time.Now().UTC().Truncate(time.Millisecond) }
 
+// Create validates the input, sets the creation and update timestamps and
+// stores the new task. It returns a *models.ValidationError if the input is invalid.
 func (s *TaskService) Create(ctx context.Context, in models.TaskInput) (*models.Task, error) {
 	if problems := in.Validate(); len(problems) > 0 {
 		return nil, &models.ValidationError{Fields: problems}
@@ -54,10 +59,13 @@ func (s *TaskService) Create(ctx context.Context, in models.TaskInput) (*models.
 	return task, nil
 }
 
+// FindAll returns the tasks that match the filter (newest first).
 func (s *TaskService) FindAll(ctx context.Context, filter models.ListFilter) ([]models.Task, error) {
 	return s.repository.FindAll(ctx, filter)
 }
 
+// FindByID converts the id received from the URL into an ObjectID and returns
+// that task (models.ErrInvalidID or models.ErrNotFound on failure).
 func (s *TaskService) FindByID(ctx context.Context, id string) (*models.Task, error) {
 	oid, err := models.ParseID(id)
 	if err != nil {
@@ -90,6 +98,8 @@ func (s *TaskService) Patch(ctx context.Context, id string, patch models.TaskPat
 	return s.repository.Update(ctx, oid, patch, now())
 }
 
+// Delete converts the id received from the URL into an ObjectID and removes
+// that task (models.ErrInvalidID or models.ErrNotFound on failure).
 func (s *TaskService) Delete(ctx context.Context, id string) error {
 	oid, err := models.ParseID(id)
 	if err != nil {

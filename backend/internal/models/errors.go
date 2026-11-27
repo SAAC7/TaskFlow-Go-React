@@ -18,6 +18,7 @@ type ValidationError struct {
 	Fields map[string]string
 }
 
+// Error makes ValidationError satisfy the standard error interface.
 func (e *ValidationError) Error() string {
 	return "Validation failed"
 }

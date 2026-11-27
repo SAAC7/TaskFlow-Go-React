@@ -5,6 +5,10 @@ import { TaskList } from "./components/TaskList";
 import { FilterBar } from "./components/FilterBar";
 import type { Filter } from "./types";
 
+/**
+ * Root component: loads the tasks with the useTasks hook and composes the form,
+ * the filter bar and the list, showing the loading and error states.
+ */
 function App() {
   const { tasks, loading, error, reload, addTask, updateTask, deleteTask } =
     useTasks();

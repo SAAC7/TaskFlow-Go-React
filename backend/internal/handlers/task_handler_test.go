@@ -26,8 +26,10 @@ type fakeRepo struct {
 	tasks map[bson.ObjectID]models.Task
 }
 
+// newFakeRepo creates an empty in-memory repository.
 func newFakeRepo() *fakeRepo { return &fakeRepo{tasks: map[bson.ObjectID]models.Task{}} }
 
+// Create stores the task in memory and assigns it a new ObjectID, like MongoDB does.
 func (f *fakeRepo) Create(_ context.Context, t *models.Task) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -36,6 +38,7 @@ func (f *fakeRepo) Create(_ context.Context, t *models.Task) error {
 	return nil
 }
 
+// FindAll returns every stored task (the fake ignores the filter and pagination).
 func (f *fakeRepo) FindAll(_ context.Context, _ models.ListFilter) ([]models.Task, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -46,6 +49,7 @@ func (f *fakeRepo) FindAll(_ context.Context, _ models.ListFilter) ([]models.Tas
 	return out, nil
 }
 
+// FindByID returns the task with the given id, or models.ErrNotFound if it does not exist.
 func (f *fakeRepo) FindByID(_ context.Context, id bson.ObjectID) (*models.Task, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -56,6 +60,8 @@ func (f *fakeRepo) FindByID(_ context.Context, id bson.ObjectID) (*models.Task, 
 	return &t, nil
 }
 
+// Update applies the non-nil fields of the patch to the stored task and
+// returns the updated task, or models.ErrNotFound if it does not exist.
 func (f *fakeRepo) Update(_ context.Context, id bson.ObjectID, p models.TaskPatch, at time.Time) (*models.Task, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -77,6 +83,7 @@ func (f *fakeRepo) Update(_ context.Context, id bson.ObjectID, p models.TaskPatc
 	return &t, nil
 }
 
+// Delete removes the task with the given id, or returns models.ErrNotFound if it does not exist.
 func (f *fakeRepo) Delete(_ context.Context, id bson.ObjectID) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -87,6 +94,8 @@ func (f *fakeRepo) Delete(_ context.Context, id bson.ObjectID) error {
 	return nil
 }
 
+// newServer builds the real handler -> service stack on top of a fresh fake
+// repository, so each test starts with an empty "database".
 func newServer() http.Handler {
 	mux := http.NewServeMux()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -95,6 +104,7 @@ func newServer() http.Handler {
 	return mux
 }
 
+// do sends a fake HTTP request to the handler and returns the recorded response.
 func do(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -102,6 +112,8 @@ func do(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
 	return rec
 }
 
+// TestCRUDFlow checks the whole life cycle of a task through the HTTP layer:
+// create (201), get, patch, put, delete (204) and a final 404.
 func TestCRUDFlow(t *testing.T) {
 	h := newServer()
 
@@ -144,6 +156,8 @@ func TestCRUDFlow(t *testing.T) {
 	}
 }
 
+// TestErrorResponses is a table-driven test: each case sends a bad request
+// and checks that the API answers with the expected 4xx status code.
 func TestErrorResponses(t *testing.T) {
 	h := newServer()
 	missing := bson.NewObjectID().Hex() // valid format, but does not exist

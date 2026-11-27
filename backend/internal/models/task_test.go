@@ -7,6 +7,8 @@ import (
 	"taskflow-backend/internal/models"
 )
 
+// TestTaskInputValidate is a table-driven test: for each input it checks
+// whether Validate accepts it or reports a problem on the expected field.
 func TestTaskInputValidate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -33,6 +35,7 @@ func TestTaskInputValidate(t *testing.T) {
 	}
 }
 
+// TestTaskInputValidateTrims checks that Validate removes the spaces around the title.
 func TestTaskInputValidateTrims(t *testing.T) {
 	in := models.TaskInput{Title: "  hello  "}
 	in.Validate()
@@ -41,6 +44,8 @@ func TestTaskInputValidateTrims(t *testing.T) {
 	}
 }
 
+// TestTaskPatchValidate checks the PATCH rules: an empty patch is invalid,
+// {"completed": false} is a real change, and a blank title is rejected.
 func TestTaskPatchValidate(t *testing.T) {
 	if p := (&models.TaskPatch{}); len(p.Validate()) == 0 {
 		t.Fatal("empty patch must be invalid")

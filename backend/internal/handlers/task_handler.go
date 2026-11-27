@@ -21,11 +21,14 @@ const (
 	maxLimit       = 100
 )
 
+// TaskHandler is the HTTP layer of the tasks: it translates requests into
+// service calls and service results into JSON responses.
 type TaskHandler struct {
 	service *services.TaskService
 	log     *slog.Logger
 }
 
+// NewTaskHandler builds a TaskHandler with the service and the logger it depends on.
 func NewTaskHandler(service *services.TaskService, log *slog.Logger) *TaskHandler {
 	return &TaskHandler{service: service, log: log}
 }
@@ -40,7 +43,8 @@ func (h *TaskHandler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /tasks/{id}", h.Delete)
 }
 
-// POST /tasks -> 201 Created + Location header
+// Create handles POST /tasks: it reads the JSON body, creates the task and
+// answers 201 Created with the new task and a Location header.
 func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var in models.TaskInput
 	if err := decodeJSON(w, r, &in); err != nil {
@@ -60,7 +64,8 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusCreated, task)
 }
 
-// GET /tasks?completed=true&limit=20&page=2
+// FindAll handles GET /tasks?completed=true&limit=20&page=2: it returns the
+// list of tasks, newest first, applying the optional filter and pagination.
 func (h *TaskHandler) FindAll(w http.ResponseWriter, r *http.Request) {
 	filter, err := parseListFilter(r.URL.Query())
 	if err != nil {
@@ -79,7 +84,7 @@ func (h *TaskHandler) FindAll(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, tasks)
 }
 
-// GET /tasks/{id}
+// FindByID handles GET /tasks/{id}: it returns a single task (404 if it does not exist).
 func (h *TaskHandler) FindByID(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
@@ -131,7 +136,8 @@ func (h *TaskHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, task)
 }
 
-// DELETE /tasks/{id} -> 204 No Content
+// Delete handles DELETE /tasks/{id}: it removes the task and answers
+// 204 No Content (no body).
 func (h *TaskHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), requestTimeout)
 	defer cancel()
@@ -162,7 +168,8 @@ func (h *TaskHandler) handleError(w http.ResponseWriter, r *http.Request, err er
 	}
 }
 
-// parseListFilter reads and validates the query string of GET /tasks.
+// parseListFilter reads and validates the query string of GET /tasks
+// (completed, limit and page) and converts it into a models.ListFilter.
 func parseListFilter(q url.Values) (models.ListFilter, error) {
 	f := models.ListFilter{Limit: defaultLimit}
 

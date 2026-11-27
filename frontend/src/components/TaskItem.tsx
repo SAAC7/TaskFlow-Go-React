@@ -8,6 +8,7 @@ interface Props {
   onDelete: (id: string) => Promise<void>
 }
 
+/** One task of the list: checkbox to complete it, inline editing of title and description, and a delete button. */
 export function TaskItem({ task, onUpdate, onDelete }: Props) {
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(task.title)
@@ -15,7 +16,7 @@ export function TaskItem({ task, onUpdate, onDelete }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Envuelve cualquier acción: marca "ocupado", captura el error y lo muestra.
+  /** Wraps any action: marks the item as busy, captures the error and shows it. */
   async function run(action: () => Promise<void>) {
     setBusy(true)
     setError(null)
@@ -28,7 +29,7 @@ export function TaskItem({ task, onUpdate, onDelete }: Props) {
     }
   }
 
-  // Al entrar a editar, partimos siempre de los valores actuales de la tarea.
+  /** Switches to edit mode, starting from the current values of the task. */
   function startEditing() {
     setDraftTitle(task.title)
     setDraftDescription(task.description)
@@ -36,13 +37,19 @@ export function TaskItem({ task, onUpdate, onDelete }: Props) {
     setEditing(true)
   }
 
+  /** Leaves edit mode and discards the unsaved changes. */
   function cancelEditing() {
     setEditing(false)
     setError(null)
   }
 
+  /** Marks the task as completed, or back to pending, with a PATCH request. */
   const toggle = () => run(() => onUpdate(task.id, { completed: !task.completed }))
+
+  /** Marks the task as completed, or back to pending, with a PATCH request. */
   const remove = () => run(() => onDelete(task.id))
+
+  /** Saves the edited title and description with a PATCH request (the title is required). */
   const save = () =>
     run(async () => {
       if (!draftTitle.trim()) {

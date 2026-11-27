@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config holds every runtime setting of the API.
 type Config struct {
 	Env            string // "development" or "production"
 	Port           string // Render injects PORT
@@ -17,6 +18,7 @@ type Config struct {
 	AllowedOrigins []string // frontend URLs allowed by CORS
 }
 
+// IsProduction reports whether the API runs in production mode (APP_ENV=production).
 func (c Config) IsProduction() bool { return c.Env == "production" }
 
 // Load reads the configuration. A local ".env" file is loaded if it exists;
@@ -38,6 +40,8 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+// getEnv returns the trimmed value of an environment variable, or the
+// fallback when the variable is empty or not set.
 func getEnv(key, fallback string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v

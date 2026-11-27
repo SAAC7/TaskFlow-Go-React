@@ -12,6 +12,7 @@ const LABELS: Record<Filter, string> = {
   completed: "Completed",
 };
 
+/** Row of buttons to switch between All / In progress / Completed, showing how many tasks each has. */
 export function FilterBar({ filter, onChange, counts }: Props) {
   return (
     <nav className="filters">
